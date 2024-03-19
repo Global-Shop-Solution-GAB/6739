@@ -1,0 +1,159 @@
+﻿Program.Sub.ScreenSU.Start
+Gui.Form..Create(BaseForm)
+Gui.Form..Caption("Project Management Bin Labels")
+Gui.Form..Size(302,94)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..AlwaysOnTop(False)
+Gui.Form..FontName("Tahoma")
+Gui.Form..FontSize(8.25)
+Gui.Form..ControlBox(True)
+Gui.Form..MaxButton(False)
+Gui.Form..MinButton(True)
+Gui.Form..MousePointer(0)
+Gui.Form..Moveable(True)
+Gui.Form..Sizeable(False)
+Gui.Form..ShowInTaskBar(True)
+Gui.Form..TitleBar(True)
+Gui.Form..Event(UnLoad,Form_UnLoad)
+Gui.Form.lbl1.Create(Label,"Choose Project",True,73,13,0,13,17,True,0,"Tahoma",8.25,,0,0)
+Gui.Form.lbl1.BorderStyle(0)
+Gui.Form.txtProject.Create(TextBox,"00000",True,57,20,0,13,33,True,0,"Tahoma",8.25,,1)
+Gui.Form.txtProject.MaxLength(5)
+Gui.Form.txtProject.DefaultValue("00000")
+Gui.Form.txtProject.TabStop(True)
+Gui.Form.txtProject.TabIndex(40)
+Gui.Form.cmdPrint.Create(Button)
+Gui.Form.cmdPrint.Enabled(True)
+Gui.Form.cmdPrint.Visible(True)
+Gui.Form.cmdPrint.Zorder(0)
+Gui.Form.cmdPrint.Size(75,23)
+Gui.Form.cmdPrint.Position(215,33)
+Gui.Form.cmdPrint.Caption("Print")
+Gui.Form.cmdPrint.FontName("Tahoma")
+Gui.Form.cmdPrint.FontSize(8.25)
+Gui.Form.cmdPrint.SvgPicture("icon_printer_color")
+Gui.Form.cmdPrint.Event(Click,cmdPrint_Click)
+Gui.Form.cmdPrint.DisableOnClick(10)
+Gui.Form.cmdPrint.TabStop(True)
+Gui.Form.cmdPrint.TabIndex(80)
+Gui.Form.cmdProject.Create(Button)
+Gui.Form.cmdProject.Enabled(True)
+Gui.Form.cmdProject.Visible(True)
+Gui.Form.cmdProject.Zorder(0)
+Gui.Form.cmdProject.Size(23,23)
+Gui.Form.cmdProject.Position(74,33)
+Gui.Form.cmdProject.Caption("")
+Gui.Form.cmdProject.FontName("Tahoma")
+Gui.Form.cmdProject.FontSize(8.25)
+Gui.Form.cmdProject.SvgPicture("icon_browser_color")
+Gui.Form.cmdProject.Event(Click,cmdProject_Click)
+Gui.Form.cmdProject.TabStop(True)
+Gui.Form.cmdProject.TabIndex(50)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+Function.Intrinsic.UI.UsePixels ' Allows you to use Pixels instead of Twips throughout
+'by Josh Withrow
+'because people need it.
+
+F.ODBC.Connection!con.OpenCompanyConnection
+
+Gui.Form..Show
+Gui.Form.txtProject.SetFocus
+
+Program.Sub.Main.End
+
+Program.Sub.Form_UnLoad.Start
+F.Intrinsic.Control.If(V.ODBC.con!.State,=,1)
+	F.ODBC.Connection!con.Close
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.End
+Program.Sub.Form_UnLoad.End
+
+Program.Sub.Catching.Start
+	V.Local.sError.Declare
+	F.Intrinsic.String.Build("Project: {0}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}",V.Caller.ScriptFile,V.Ambient.NewLine,v.Args.sub,V.Args.errorno,V.args.errordesc,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError,"Unhandled Exception")
+	'F.Intrinsic.Control.End
+	'I don't want to end the program... I just want to tell the user that they made me puke.
+Program.Sub.Catching.End
+
+Program.Sub.cmdPrint_Click.Start
+F.Intrinsic.Control.Try
+
+V.Local..BulkDeclareString(sSQL,sReportPath,sAltReportPath,sMsg)
+V.Local..BulkDeclareLong(iBIRunID,iBILogID,iBIRptID)
+V.Local..BulkDeclareBoolean(bExists)
+
+'Report Details...
+F.Intrinsic.String.Concat(V.Caller.BusintDir,"\Labels\Custom\GAB_6739_ProjectMgmtLabel_Codesoft.lab",V.Local.sReportPath)
+F.Intrinsic.File.Exists(V.Local.sReportPath,V.Local.bExists)
+F.Intrinsic.Control.If(V.Local.bExists)
+	F.Global.BI.InitializeReport("Project Management Bin Label (6739)",V.Local.sReportPath,V.Local.iBIRptID)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Build("Please ensure that the label template exists.{0}{0}{1}",V.Ambient.NewLine,V.Local.sReportPath,V.Local.sMsg)
+	F.Intrinsic.UI.Msgbox(V.Local.sMsg,"Label Template Not Found")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+'Set SQL statement that will load the DataTable which we will use to print the labels...
+F.Intrinsic.String.Build("select a.*, b.* from v_project_master a left outer join v_customer_master b on a.customer=b.customer where project='{0}'",V.Screen.Form!txtProject.Text,V.Local.sSQL)
+F.Data.DataTable.CreateFromSQL("dtData","con",V.Local.sSQL)
+
+'Getting Run ID...
+F.Global.BI.GetRunID(V.Local.iBIRunID)
+'Getting Log ID, start logging...
+F.Global.BI.StartLogging(V.Local.iBIRunID,V.Local.iBIRptID,-1,"",V.Local.iBILogID)
+
+F.Intrinsic.Control.If(V.DataTable.dtData.RowCount--,<>,-1)
+    'Printing Codesoft label
+    F.Global.BI.PrintCodesoftLabelFromDataTable(V.Local.iBIRunID,V.Local.iBILogID,"dtData","",True)
+    'Stopping Logging
+	F.Global.BI.StopLogging(V.Local.iBILogID)
+F.Intrinsic.Control.Else
+	F.Intrinsic.UI.Msgbox("No records found.","Notice")
+F.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catching,"Sub",V.Ambient.CurrentSubroutine,"ErrorNo",V.Ambient.ErrorNumber,"ErrorDesc",V.Ambient.ErrorDescription) 
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdPrint_Click.End
+
+Program.Sub.cmdProject_Click.Start
+F.Intrinsic.Control.Try
+
+V.Local..BulkDeclareString(sTitles,sWidths,sRet,sMsg)
+V.Local..BulkDeclareBoolean(bExists)
+
+'Browser properties...
+V.Local.sTitles.Set("Project*!*Project Description*!*Customer*!*Customer Name")
+V.Local.sWidths.Set("500*!*1500*!*500*!*1500")
+
+'GIT'R'DUN!
+F.Intrinsic.String.Split(V.Local.sTitles,"*!*",V.Local.sTitles)
+F.Intrinsic.String.Split(V.Local.sWidths,"*!*",V.Local.sWidths)
+F.Intrinsic.UI.SetBrowserHotTypeAhead(True)
+F.Intrinsic.UI.Browser("Select Project","con","select a.Project, a.Descr as 'Project Description', a.Customer, b.Name_Customer as 'Customer Name' from project_master a left outer join v_customer_master b on a.customer=b.customer",V.Local.sTitles,V.Local.sWidths,9000,8000,V.Local.sRet)
+F.Intrinsic.Control.If(V.Local.sRet,<>,"***CANCEL***")
+	F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+	Gui.Form.txtProject.Text(V.Local.sRet(0))
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Catching,"Sub",V.Ambient.CurrentSubroutine,"ErrorNo",V.Ambient.ErrorNumber,"ErrorDesc",V.Ambient.ErrorDescription) 
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdProject_Click.End
+
+Program.Sub.Comments.Start
+${$5$}$3.0.0.0$}$1
+${$6$}$jwithrow$}$20220510115414980$}$D95tSYIikIvF+oq+s87EtBQePACEH+EyDs2gPmW3WNrPaVkPK3aFOLXQCZAs//FMIjc1tzJnKuDNLuUAwlDG8Q==
+Program.Sub.Comments.End
